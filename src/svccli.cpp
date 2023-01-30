@@ -1,3 +1,5 @@
+// Command line interface of SvcWrapper library.
+// Copyright (c) LASERVORM GmbH 2023
 #include "svccli.h"
 #include "SvcWrapper/svcwrapper.h"
 
@@ -66,9 +68,6 @@ int SvcCli::help() const
          << "  help         Displays this message.\n"
          << "  install      Installs the " << m_svcName << " service. (Needs admin privileges!)\n"
          << "  uninstall    Uninstalls the " << m_svcName << " service. (Needs admin privileges!)\n"
-//         << "  start"
-//         << "  stop"
-//         << "  status"
          << endl;
     return ECODE_OK;
 }

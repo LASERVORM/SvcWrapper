@@ -1,3 +1,5 @@
+// Command line interface of SvcWrapper library.
+// Copyright (c) LASERVORM GmbH 2023
 #ifndef SVCCLI_H
 #define SVCCLI_H
 
@@ -5,13 +7,30 @@
 #include <vector>
 #include <windows.h>
 
-#include <SvcWrapper/svcwrapper.h>
+#include "SvcWrapper/svcwrapper.h"
 
+/*!
+ * \brief SvcWrapper CLI
+ * \details Implements the SvcWrapper command line interface which handles
+ * installation and removal of the service.
+ */
 class SvcCli
 {
 public:
+    /*!
+     * \brief Construct CLI handler instance
+     * \param argc passed from main
+     * \param argv passed from main
+     * \param svcConfig Service configuration
+     */
     explicit SvcCli(int argc, char *argv[], const SvcWrapperConfig& svcConfig);
     ~SvcCli();
+
+    /*!
+     * \brief Run CLI
+     * \details Executes the CLI
+     * \return CLI exit code
+     */
     int run();
 
 private:

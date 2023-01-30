@@ -1,3 +1,5 @@
+// Private implementation of the SvcWrapper library.
+// Copyright (c) LASERVORM GmbH 2023
 #include "svcwrapper_impl.h"
 #include "svccli.h"
 

@@ -1,3 +1,5 @@
+// EchoServer demo application wrapped as shared library.
+// Copyright (c) LASERVORM GmbH 2023
 #ifndef ECHOSERVER_H
 #define ECHOSERVER_H
 
