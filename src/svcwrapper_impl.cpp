@@ -1,4 +1,6 @@
 #include "svcwrapper_impl.h"
+#include "svccli.h"
+
 #include <cstring>
 #include <cassert>
 #include <iostream>
@@ -10,6 +12,10 @@ int SvcWrapperVerifyConfig(const SvcWrapperConfig &svcCfg)
     // Name and DisplayName may not be empty
     if (!svcCfg.svcName || strlen(svcCfg.svcName) > 255 ||
         !svcCfg.svcDisplayName || strlen(svcCfg.svcDisplayName) > 255)
+        return SVCWRAPPER_EXITCODE_INVALID_CONFIG;
+
+    // Description is optional, but should not exceed 255 chars
+    if (svcCfg.svcDescription != nullptr && strlen(svcCfg.svcDescription) > 255)
         return SVCWRAPPER_EXITCODE_INVALID_CONFIG;
 
     // Check for required callbacks
@@ -36,7 +42,8 @@ int SvcWrapper(int argc, char* argv[], const SvcWrapperConfig &svcConfig)
 
     // Parse CLI args
     if (argc > 1) {
-        return SvcParseCLI();
+        SvcCli p(argc, argv, svcConfig);
+        return p.run();
     }
 
     // Startup service
@@ -45,8 +52,6 @@ int SvcWrapper(int argc, char* argv[], const SvcWrapperConfig &svcConfig)
 
 int SvcInit(const SvcWrapperConfig &svcCfg)
 {
-    //! \todo check if argc, argv can be removed
-
     // Define ServiceTable entry for our service
     const SERVICE_TABLE_ENTRY ServiceTable[] = {
         // Entry for our service:
@@ -62,7 +67,7 @@ int SvcInit(const SvcWrapperConfig &svcCfg)
     // Pass ServiceTable to service control dispatcher
     if (!StartServiceCtrlDispatcher(ServiceTable)) {
         cout << "This application is a Windows Service executable!\n"
-             << "Add --help argument for supported CLI commands." << endl;
+             << "Add help argument for supported CLI commands." << endl;
         return SVCWRAPPER_EXITCODE_SVC_CTRL_DISPATCHER_FAILED;
     }
 
@@ -180,156 +185,4 @@ DWORD SvcWorkerThread(LPVOID)
     // Run service main procedure and store it's exit code
     hSvc.exitCode = hSvc.cfg->svcCallbackMain(hSvc.argc, hSvc.argv);
     return ERROR_SUCCESS;
-}
-
-int SvcParseCLI()
-{
-    assert(hSvc.argc > 1);
-
-    // Install command
-    if (strcmp(hSvc.argv[1], "install") == 0) {
-        return SvcInstall();
-    } else if (strcmp(hSvc.argv[1], "uninstall") == 0) {
-        return SvcUninstall();
-    }
-}
-
-int SvcInstall()
-{
-    if (hSvc.argc > 2) {
-        cout << "Usage: " << hSvc.argv[0] << " install" << endl;
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    cout << "Installing service " << hSvc.cfg->svcName << "..." << endl;
-
-    // Get executable path
-    char binPathUnquoted[MAX_PATH];
-    if (!GetModuleFileName(NULL, binPathUnquoted, MAX_PATH)) {
-        cerr << "GetModuleFileName call failed: " << GetLastError() << endl;
-        cout << "Service install failed!";
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    // Path must be quoted, in case it contains spaces...
-    char binPath[MAX_PATH+2];
-    sprintf(binPath, "\"%s\"", binPathUnquoted);
-
-    // Get handle to SCM database
-    SC_HANDLE svcMgr = OpenSCManager(
-                NULL, // Local computer
-                NULL, // ServicesActive database
-                SC_MANAGER_ALL_ACCESS); // Full access rights
-    if (svcMgr == NULL) {
-        cerr << "OpenSCManager call failed. Do you have Admin rights?" << endl;
-        cerr << "Error info: " << GetLastError() << endl;
-        cout << "Service install failed!";
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    // Check services already exists
-    SC_HANDLE svcDef = OpenService(svcMgr, hSvc.cfg->svcName, SERVICE_QUERY_STATUS);
-    if (svcDef != NULL) {
-        cerr << "Service is already installed!" << endl;
-        cout << "Service install failed!";
-        CloseServiceHandle(svcDef);
-        CloseServiceHandle(svcMgr);
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    // Create the service
-    svcDef = CreateService(
-                svcMgr, // ServiceManager database
-                hSvc.cfg->svcName, // Service internal name
-                hSvc.cfg->svcDisplayName, // Service display name
-                SERVICE_ALL_ACCESS, //!< \todo configurable
-                SERVICE_WIN32_OWN_PROCESS, // Service runs in own process
-                SERVICE_DEMAND_START, //! \todo configurable
-                SERVICE_ERROR_NORMAL, //!< \todo configurable
-                binPath, // Service binary path
-                NULL, //! \todo check loadordergroup
-                NULL, //! < \todo check tag identifier
-                NULL, //!< \todo check dependencies
-                NULL, //! < \todo check run account
-                NULL); //! < \todo check run password
-    if (svcDef == NULL) {
-        cerr << "CreateService call failed: " << GetLastError() << endl;
-        cout << "Service install failed!";
-        CloseServiceHandle(svcMgr);
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    // Service installed successfully
-    CloseServiceHandle(svcDef);
-    CloseServiceHandle(svcMgr);
-    cout << "Success!" << endl;
-    return SVCWRAPPER_EXITCODE_OK;
-}
-
-int SvcUninstall()
-{
-    if (hSvc.argc > 2) {
-        cout << "Usage: " << hSvc.argv[0] << " uninstall" << endl;
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    cout << "Uninstalling service " << hSvc.cfg->svcName << "..." << endl;
-
-    // Get handle to SCM database
-    SC_HANDLE svcMgr = OpenSCManager(
-                NULL, // Local computer
-                NULL, // ServicesActive database
-                SC_MANAGER_ALL_ACCESS); // Full access rights
-    if (svcMgr == NULL) {
-        cerr << "OpenSCManager call failed. Do you have Admin rights?" << endl;
-        cerr << "Error info: " << GetLastError() << endl;
-        cout << "Service uninstall failed!";
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    // Check service exists
-    SC_HANDLE svcDef = OpenService(svcMgr, hSvc.cfg->svcName, SERVICE_ALL_ACCESS);
-    if (svcDef == NULL) {
-        cerr << "Service " << hSvc.cfg->svcName << " is not installed!" << endl;
-        cout << "Service uninstall failed!";
-        CloseServiceHandle(svcDef);
-        CloseServiceHandle(svcMgr);
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    // Check service is stopped
-    SERVICE_STATUS_PROCESS svcState;
-    DWORD dwBytesNeeded;
-    int result = QueryServiceStatusEx(svcDef, SC_STATUS_PROCESS_INFO,
-        reinterpret_cast<LPBYTE>(&svcState), sizeof(SERVICE_STATUS_PROCESS), &dwBytesNeeded);
-    if (!result) {
-        cerr << "Failed to query status of service " << hSvc.cfg->svcName << "!" << endl;
-        cout << "Service uninstall failed!";
-        CloseServiceHandle(svcDef);
-        CloseServiceHandle(svcMgr);
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-    if (svcState.dwCurrentState != SERVICE_STOPPED) {
-        cerr << "Service " << hSvc.cfg->svcName << " is not stopped!" << endl;
-        cout << "Service uninstall failed!";
-        CloseServiceHandle(svcDef);
-        CloseServiceHandle(svcMgr);
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    // Delete service
-    if (DeleteService(svcDef) == FALSE) {
-        cerr << "Failed to delete service " << hSvc.cfg->svcName << ": "
-             << GetLastError() << endl;
-        cout << "Service uninstall failed!";
-        CloseServiceHandle(svcDef);
-        CloseServiceHandle(svcMgr);
-        return SVCWRAPPER_EXITCODE_CLI_ERROR;
-    }
-
-    // Service delete success
-    cout << "Success!" << endl;
-    CloseServiceHandle(svcDef);
-    CloseServiceHandle(svcMgr);
-    return SVCWRAPPER_EXITCODE_OK;
 }

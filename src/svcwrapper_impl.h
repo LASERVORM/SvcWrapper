@@ -26,10 +26,4 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode);
 DWORD SvcWorkerThread(LPVOID);
 void SvcStopWithLastError();
 
-// CLI
-int SvcParseCLI();
-
-int SvcInstall();
-int SvcUninstall();
-
 #endif // SVCWRAPPER_IMPL_H

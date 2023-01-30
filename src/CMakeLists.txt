@@ -4,6 +4,8 @@ add_library(SvcWrapper STATIC
 
     svcwrapper_impl.h
     svcwrapper_impl.cpp
+    svccli.h
+    svccli.cpp
 )
 
 target_include_directories(SvcWrapper
