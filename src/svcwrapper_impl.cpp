@@ -5,6 +5,8 @@
 #include <cassert>
 #include <iostream>
 
+GlobalHandles *hSvc {nullptr};
+
 using namespace std;
 
 int SvcWrapperVerifyConfig(const SvcWrapperConfig &svcCfg)
@@ -28,6 +30,9 @@ int SvcWrapperVerifyConfig(const SvcWrapperConfig &svcCfg)
 
 int SvcWrapper(int argc, char* argv[], const SvcWrapperConfig &svcConfig)
 {
+    assert(hSvc == nullptr);
+    hSvc = new GlobalHandles;
+
     // Verify supplied SvcWrapper configuration
     int exitCode = SvcWrapperVerifyConfig(svcConfig);
     if (exitCode != 0) {
@@ -36,9 +41,9 @@ int SvcWrapper(int argc, char* argv[], const SvcWrapperConfig &svcConfig)
     }
 
     // Store config pointer and startup args
-    hSvc.cfg = &svcConfig;
-    hSvc.argc = argc;
-    hSvc.argv = argv;
+    hSvc->cfg = &svcConfig;
+    hSvc->argc = argc;
+    hSvc->argv = argv;
 
     // Parse CLI args
     if (argc > 1) {
@@ -47,7 +52,9 @@ int SvcWrapper(int argc, char* argv[], const SvcWrapperConfig &svcConfig)
     }
 
     // Startup service
-    return SvcInit(svcConfig);
+    exitCode =  SvcInit(svcConfig);
+    delete hSvc;
+    return exitCode;
 }
 
 int SvcInit(const SvcWrapperConfig &svcCfg)
@@ -76,40 +83,40 @@ int SvcInit(const SvcWrapperConfig &svcCfg)
 
 void SvcMain()
 {
-    assert(hSvc.cfg != nullptr);
+    assert(hSvc->cfg != nullptr);
 
     // Register service control handler
-    hSvc.statusHandle = RegisterServiceCtrlHandler(hSvc.cfg->svcName, SvcCtrlHandler);
-    if (hSvc.statusHandle == NULL) {
+    hSvc->statusHandle = RegisterServiceCtrlHandler(hSvc->cfg->svcName, SvcCtrlHandler);
+    if (hSvc->statusHandle == NULL) {
         //! \todo log failure?
         return;
     }
 
     // Inform SCM we are starting...
-    ZeroMemory(&hSvc.status, sizeof(hSvc.status));
-    hSvc.status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-    hSvc.status.dwControlsAccepted = 0; // none
-    hSvc.status.dwCurrentState = SERVICE_START_PENDING;
-    hSvc.status.dwWin32ExitCode = NO_ERROR;
-    hSvc.status.dwServiceSpecificExitCode = NO_ERROR;
-    hSvc.status.dwCheckPoint = 0;
-    if (!SetServiceStatus(hSvc.statusHandle, &hSvc.status)) {
+    ZeroMemory(&hSvc->status, sizeof(hSvc->status));
+    hSvc->status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+    hSvc->status.dwControlsAccepted = 0; // none
+    hSvc->status.dwCurrentState = SERVICE_START_PENDING;
+    hSvc->status.dwWin32ExitCode = NO_ERROR;
+    hSvc->status.dwServiceSpecificExitCode = NO_ERROR;
+    hSvc->status.dwCheckPoint = 0;
+    if (!SetServiceStatus(hSvc->statusHandle, &hSvc->status)) {
         //! \todo log this problem somehow
     }
 
     // Create stop event to wait on later
-    hSvc.stopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (hSvc.stopEvent == NULL) {
+    hSvc->stopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (hSvc->stopEvent == NULL) {
         SvcStopWithLastError();
         return;
     }
 
     // Inform SCM we are started.
-    hSvc.status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
-    hSvc.status.dwCurrentState = SERVICE_RUNNING;
-    hSvc.status.dwWin32ExitCode = NO_ERROR;
-    hSvc.status.dwCheckPoint = 0;
-    if (SetServiceStatus(hSvc.statusHandle, &hSvc.status) == FALSE) {
+    hSvc->status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+    hSvc->status.dwCurrentState = SERVICE_RUNNING;
+    hSvc->status.dwWin32ExitCode = NO_ERROR;
+    hSvc->status.dwCheckPoint = 0;
+    if (SetServiceStatus(hSvc->statusHandle, &hSvc->status) == FALSE) {
         //! \todo log this problem
     }
 
@@ -117,36 +124,36 @@ void SvcMain()
     HANDLE hWorkerThread = CreateThread(NULL, 0, SvcWorkerThread, NULL, 0, NULL);
 
     // Wait for stop event to be set
-    WaitForSingleObject(hSvc.stopEvent, INFINITE);
-    CloseHandle(hSvc.stopEvent);
+    WaitForSingleObject(hSvc->stopEvent, INFINITE);
+    CloseHandle(hSvc->stopEvent);
 
     // Wait for worker thread to finish
-    WaitForSingleObject(hWorkerThread, hSvc.cfg->shutdownTimeout ?
-                            hSvc.cfg->shutdownTimeout : INFINITE);
+    WaitForSingleObject(hWorkerThread, hSvc->cfg->shutdownTimeout ?
+                            hSvc->cfg->shutdownTimeout : INFINITE);
     CloseHandle(hWorkerThread);
 
     // Tell SCM we stopped
-    hSvc.status.dwControlsAccepted = 0; // none
-    hSvc.status.dwCurrentState = SERVICE_STOPPED;
-    if (hSvc.exitCode) {
-        hSvc.status.dwWin32ExitCode = ERROR_SERVICE_SPECIFIC_ERROR;
-        hSvc.status.dwServiceSpecificExitCode = hSvc.exitCode;
+    hSvc->status.dwControlsAccepted = 0; // none
+    hSvc->status.dwCurrentState = SERVICE_STOPPED;
+    if (hSvc->exitCode != 0) {
+        hSvc->status.dwWin32ExitCode = ERROR_SERVICE_SPECIFIC_ERROR;
+        hSvc->status.dwServiceSpecificExitCode = hSvc->exitCode;
     } else {
-        hSvc.status.dwWin32ExitCode = NO_ERROR;
+        hSvc->status.dwWin32ExitCode = NO_ERROR;
     }
-    hSvc.status.dwCheckPoint = 3;
-    if (SetServiceStatus(hSvc.statusHandle, &hSvc.status) == FALSE) {
+    hSvc->status.dwCheckPoint = 3;
+    if (SetServiceStatus(hSvc->statusHandle, &hSvc->status) == FALSE) {
         //! \todo log failure
     }
 }
 
 void SvcStopWithLastError()
 {
-    hSvc.status.dwControlsAccepted = 0; // none
-    hSvc.status.dwCurrentState = SERVICE_STOPPED;
-    hSvc.status.dwWin32ExitCode = GetLastError();
-    hSvc.status.dwCheckPoint = 1;
-    if (SetServiceStatus(hSvc.statusHandle, &hSvc.status) == FALSE) {
+    hSvc->status.dwControlsAccepted = 0; // none
+    hSvc->status.dwCurrentState = SERVICE_STOPPED;
+    hSvc->status.dwWin32ExitCode = GetLastError();
+    hSvc->status.dwCheckPoint = 1;
+    if (SetServiceStatus(hSvc->statusHandle, &hSvc->status) == FALSE) {
         //! \todo log service status failed
     }
 }
@@ -155,25 +162,25 @@ void SvcCtrlHandler(DWORD CtrlCode)
 {
     switch (CtrlCode) {
     case SERVICE_CONTROL_STOP:
-        if (hSvc.status.dwCurrentState != SERVICE_RUNNING) {
+        if (hSvc->status.dwCurrentState != SERVICE_RUNNING) {
             //! \todo log
             break;
         }
 
         // Execute serice stop callback
-        hSvc.cfg->svcCallbackStop();
+        hSvc->cfg->svcCallbackStop();
 
         // Tell SCM we're stopping
-        hSvc.status.dwControlsAccepted = 0; // none
-        hSvc.status.dwCurrentState = SERVICE_STOP_PENDING;
-        hSvc.status.dwWin32ExitCode = NO_ERROR;
-        hSvc.status.dwCheckPoint = 4;
-        if (SetServiceStatus(hSvc.statusHandle, &hSvc.status) == FALSE) {
+        hSvc->status.dwControlsAccepted = 0; // none
+        hSvc->status.dwCurrentState = SERVICE_STOP_PENDING;
+        hSvc->status.dwWin32ExitCode = NO_ERROR;
+        hSvc->status.dwCheckPoint = 4;
+        if (SetServiceStatus(hSvc->statusHandle, &hSvc->status) == FALSE) {
             //! \todo log error
         }
 
         // Set stop event to let SvcMain resume
-        SetEvent(hSvc.stopEvent);
+        SetEvent(hSvc->stopEvent);
         break;
     default:
         break;
@@ -183,6 +190,6 @@ void SvcCtrlHandler(DWORD CtrlCode)
 DWORD SvcWorkerThread(LPVOID)
 {
     // Run service main procedure and store it's exit code
-    hSvc.exitCode = hSvc.cfg->svcCallbackMain(hSvc.argc, hSvc.argv);
+    hSvc->exitCode = hSvc->cfg->svcCallbackMain(hSvc->argc, hSvc->argv);
     return ERROR_SUCCESS;
 }

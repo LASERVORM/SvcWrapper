@@ -7,7 +7,7 @@
 //! \todo logging
 
 // Global handles
-struct {
+struct GlobalHandles {
     const SvcWrapperConfig* cfg {nullptr};
     SERVICE_STATUS status;
     SERVICE_STATUS_HANDLE statusHandle {NULL};
@@ -16,7 +16,7 @@ struct {
     int argc {0};
     char** argv {nullptr};
     int exitCode {SVCWRAPPER_EXITCODE_OK};
-} hSvc;
+};
 
 int SvcWrapperVerifyConfig(const SvcWrapperConfig& svcCfg);
 
