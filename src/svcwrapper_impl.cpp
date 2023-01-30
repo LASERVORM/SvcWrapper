@@ -109,7 +109,13 @@ void SvcMain()
     // Create stop event to wait on later
     hSvc->stopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (hSvc->stopEvent == NULL) {
-        SvcStopWithLastError();
+        hSvc->status.dwControlsAccepted = 0; // none
+        hSvc->status.dwCurrentState = SERVICE_STOPPED;
+        hSvc->status.dwWin32ExitCode = GetLastError();
+        hSvc->status.dwCheckPoint = 1;
+        if (SetServiceStatus(hSvc->statusHandle, &hSvc->status) == FALSE) {
+            //! \todo log service status failed
+        }
         return;
     }
 
@@ -146,17 +152,6 @@ void SvcMain()
     hSvc->status.dwCheckPoint = 3;
     if (SetServiceStatus(hSvc->statusHandle, &hSvc->status) == FALSE) {
         //! \todo log failure
-    }
-}
-
-void SvcStopWithLastError()
-{
-    hSvc->status.dwControlsAccepted = 0; // none
-    hSvc->status.dwCurrentState = SERVICE_STOPPED;
-    hSvc->status.dwWin32ExitCode = GetLastError();
-    hSvc->status.dwCheckPoint = 1;
-    if (SetServiceStatus(hSvc->statusHandle, &hSvc->status) == FALSE) {
-        //! \todo log service status failed
     }
 }
 

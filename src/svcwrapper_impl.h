@@ -66,6 +66,5 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode);
  * thread API.)
  */
 DWORD SvcWorkerThread(LPVOID);
-void SvcStopWithLastError();
 
 #endif // SVCWRAPPER_IMPL_H
