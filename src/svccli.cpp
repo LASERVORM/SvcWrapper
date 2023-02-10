@@ -7,6 +7,7 @@
 #include <cassert>
 #include <string>
 #include <iostream>
+#include <filesystem>
 
 #define ECODE_OK SVCWRAPPER_EXITCODE_OK
 #define ECODE_SYNTAX SVCWRAPPER_EXITCODE_CLI_SYNTAX_ERROR
@@ -23,14 +24,23 @@ SvcCli::SvcCli(int argc, char *argv[], const SvcWrapperConfig& svcConfig)
         m_argv[i] = std::string(argv[i]);
     }
 
-    // Initialize own module name and path
-    char binPath[MAX_PATH], binPathQuoted[MAX_PATH+2];
-    assert(GetModuleFileName(NULL, binPath, MAX_PATH));
-    sprintf(binPathQuoted, "\"%s\"", binPath);
-    m_binaryPath = binPath;
-    m_binaryPathQuoted = binPathQuoted;
-    std::string::size_type const p(m_binaryPath.find_last_of("\\")+1);
-    m_binaryName = m_binaryPath.substr(p, m_binaryPath.length()-p);
+    /* Initialize own module name and path
+     *
+     * We used to utilize GetModuleFileName from Windows API for this. But
+     * somehow when built with MinGW 11.2 Release build type, this function
+     * always returned \x04 (EOT), while working fine with Debug builds.
+     */
+    std::filesystem::path argv0(argv[0]);
+    std::string ext(argv0.extension().string());
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+    if (ext != ".exe") {
+        argv0 = std::filesystem::path(argv0.parent_path())
+                .append(argv0.filename().string()+".exe");
+    }
+    m_binaryPath = std::filesystem::absolute(argv0).string();
+    m_binaryPathQuoted = "\"" + m_binaryPath + "\"";
+    m_binaryName = argv0.filename().string();
 
     // Populate service info
     m_svcName = std::string(m_svcCfg.svcName);
