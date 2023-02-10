@@ -1,0 +1,6 @@
+# CMake package config for @PROJECT_NAME@ v@PROJECT_VERSION@
+# Copyright (c) 2023 LASERVORM GmbH.
+
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@_exports.cmake")

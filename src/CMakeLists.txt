@@ -3,6 +3,8 @@
 # Copyright (c) LASERVORM GmbH 2023                                            #
 ################################################################################
 
+### Static SvcWrapper library ##################################################
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # Add SvcWrapper static library
@@ -19,5 +21,14 @@ add_library(SvcWrapper STATIC
 
 target_include_directories(SvcWrapper
     PUBLIC
-    ${PROJECT_SOURCE_DIR}/include
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+### Install rules ##############################################################
+
+install(TARGETS SvcWrapper
+    EXPORT ${PROJECT_NAME}_exports
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
