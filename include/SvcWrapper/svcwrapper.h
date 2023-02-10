@@ -1,5 +1,12 @@
-// Public header of the SvcWrapper library.
-// Copyright (c) LASERVORM GmbH 2023
+/* Public header of the SvcWrapper library.
+ *
+ * SvcWrapper is a library that allows to wrap any C/C++ application into a
+ * fully functional Windows service.
+ * Source code and readme can be found at:
+ * https://github.com/LASERVORM/SvcWrapper
+ *
+ * Copyright (c) LASERVORM GmbH 2023
+ */
 #ifndef SVCWRAPPER_H
 #define SVCWRAPPER_H
 
