@@ -62,7 +62,7 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode);
 /*!
  * \brief Service worker thread
  * \details Runs the application wrapped by SvcWrapper in it's own thread.
- * \return Always exit code 0. (Return value unsued but required by Windows
+ * \return Always exit code 0. (Return value unused but required by Windows
  * thread API.)
  */
 DWORD SvcWorkerThread(LPVOID);

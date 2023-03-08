@@ -36,6 +36,22 @@
 // Control Manager.
 #define SVCWRAPPER_EXITCODE_SVC_REG_CTRL_HANDLER_FAILED 1001
 
+// === SvcWrapper logging ======================================================
+
+/*!
+ * \brief Log levels
+ * \details The SvcLogLevel enum defines available log levels, a value of this
+ * type will be passed to the svcLogCallback together with the message text.
+ * \sa SvcWrapperConfig::svcLogCallback
+ */
+enum SvcLogLevel {
+    Critical,
+    Warning,
+    Info,
+    Debug
+};
+
+// === SvcWrapper configuration ================================================
 /*!
  * \brief SvcWrapper configuration
  * \details The SvcWrapperConfig struct contains the configuration for a
@@ -147,7 +163,19 @@ struct SvcWrapperConfig {
      * \note This function will be called from SvcWrappers thread, so it
      * must be thread safe!
      */
-    std::function<void()> svcCallbackStop {nullptr}; //!< must be thread safe!
+    std::function<void()> svcCallbackStop {nullptr};
+
+    /*!
+     * \brief Log message callback
+     * \details Callback to logging handler function. This function will be
+     * called on each log message that occurs. The first argument will contain
+     * the log level and the second a char pointer to the log message.
+     * \note The message should be processed or stored immediately, as the
+     * char pointer may only be allocated temporarily.
+     * \note This function will be called from SvcWrappers thread, so it
+     * must be thread safe!
+     */
+    std::function<void(SvcLogLevel, const char*)> svcLogCallback {nullptr};
 };
 
 /*!
